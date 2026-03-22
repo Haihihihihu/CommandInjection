@@ -1,0 +1,89 @@
+╔══════════════════════════════════════════════════════════════════╗
+║         VÁ LỖ HỔNG KỊCH BẢN 1 - IN-BAND COMMAND INJECTION       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📍 FILE: /var/www/html/app/controllers/ProductController.php
+🎯 LỖ HỔNG: Command Injection qua parameter storeId
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 HIỆN TẠI: LỖ HỔNG ĐANG BẬT
+
+Payload exploit:
+POST /product/stock
+productId=1&storeId=1|whoami
+
+→ Response: www-data ✅ (dính lỗ hổng!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️  CÁCH VÁ:
+
+Mở file:
+nano /var/www/html/app/controllers/ProductController.php
+
+Tìm dòng 48-49 (ĐANG BẬT):
+────────────────────────────
+$command = "stockreport.pl " . $productId . " " . $storeId;
+$output = shell_exec($command);
+
+→ Comment lại (thêm //):
+────────────────────────────
+//$command = "stockreport.pl " . $productId . " " . $storeId;
+//$output = shell_exec($command);
+
+
+Chọn 1 trong 2 cách dưới và uncomment (bỏ //):
+
+┌──────────────────────────────────────────────────────────────────┐
+│ CÁCH 1: escapeshellarg() - NHANH, DỄ                            │
+└──────────────────────────────────────────────────────────────────┘
+
+Uncomment dòng 55-56:
+$command = "stockreport.pl " . escapeshellarg($productId) . " " . escapeshellarg($storeId);
+$output = shell_exec($command);
+
+✅ Wrap input trong single quotes
+✅ Escape special chars
+✅ Fix trong 30 giây
+
+
+┌──────────────────────────────────────────────────────────────────┐
+│ CÁCH 2: Whitelist validation - AN TOÀN HƠN                      │
+└──────────────────────────────────────────────────────────────────┘
+
+Uncomment dòng 59-64:
+if (!preg_match('/^[0-9]+$/', $productId) || !preg_match('/^[0-9]+$/', $storeId)) {
+    $stockResult = "Invalid input!";
+    echo $stockResult;
+    exit;
+}
+$command = "stockreport.pl " . $productId . " " . $storeId;
+$output = shell_exec($command);
+
+✅ Chỉ cho phép số (0-9)
+✅ Reject mọi special chars
+✅ An toàn hơn
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 TEST SAU KHI VÁ:
+
+Payload:
+POST /product/stock
+productId=1&storeId=1|whoami
+
+CÁCH 1 (escapeshellarg):
+→ Response: Error/No output (không execute whoami) ✅
+
+CÁCH 2 (whitelist):
+→ Response: Invalid input! ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 KHUYẾN NGHỊ:
+
+Development/Testing: Dùng CÁCH 1 (nhanh)
+Production: Dùng CÁCH 2 (an toàn hơn)
+
+╚══════════════════════════════════════════════════════════════════╝
